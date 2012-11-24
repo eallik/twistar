@@ -202,12 +202,13 @@ class DBObjectTest(unittest.TestCase):
         def afterInit(user):
             user.blah = "foobar"
         User.afterInit = afterInit
-        u = yield User.find(limit=1)
-        self.assertTrue(hasattr(u, 'blah'))
-        self.assertEqual(u.blah, 'foobar')
-
-        # restore user's afterInit
-        User.afterInit = DBObject.afterInit
+        try:
+            u = yield User.find(limit=1)
+            self.assertTrue(hasattr(u, 'blah'))
+            self.assertEqual(u.blah, 'foobar')
+        finally:
+            # restore user's afterInit
+            User.afterInit = DBObject.afterInit
 
     def test_deferred_afterInit(self):
         ctrl_d = Deferred()
@@ -240,12 +241,13 @@ class DBObjectTest(unittest.TestCase):
         self.assertEqual(result, u)
 
         User.beforeDelete = lambda user: True
-        yield u.delete()
-        result = yield User.find(oldid)
-        self.assertEqual(result, None)
-
-        # restore user's beforeDelete
-        User.beforeDelete = DBObject.beforeDelete
+        try:
+            yield u.delete()
+            result = yield User.find(oldid)
+            self.assertEqual(result, None)
+        finally:
+            # restore user's beforeDelete
+            User.beforeDelete = DBObject.beforeDelete
 
     @inlineCallbacks
     def test_loadRelations(self):
