@@ -1,7 +1,6 @@
 from twisted.trial import unittest
 from twisted.internet.defer import inlineCallbacks, Deferred
 
-from twistar.dbobject import DBObject
 from twistar.exceptions import ImaginaryTableError
 from twistar.registry import Registry
 
@@ -207,8 +206,7 @@ class DBObjectTest(unittest.TestCase):
             self.assertTrue(hasattr(u, 'blah'))
             self.assertEqual(u.blah, 'foobar')
         finally:
-            # restore user's afterInit
-            User.afterInit = DBObject.afterInit
+            del User.afterInit
 
     def test_deferred_afterInit(self):
         ctrl_d = Deferred()
@@ -246,8 +244,7 @@ class DBObjectTest(unittest.TestCase):
             result = yield User.find(oldid)
             self.assertEqual(result, None)
         finally:
-            # restore user's beforeDelete
-            User.beforeDelete = DBObject.beforeDelete
+            del User.beforeDelete
 
     @inlineCallbacks
     def test_loadRelations(self):
