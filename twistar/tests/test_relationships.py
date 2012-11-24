@@ -1,12 +1,12 @@
 from twisted.trial import unittest
-from twisted.enterprise import adbapi
 from twisted.internet.defer import inlineCallbacks
 
 from twistar.exceptions import ReferenceNotSavedError
 
-from utils import *
+from .utils import Registry, initDB, tearDownDB, Nickname, User, Avatar, Picture, FavoriteColor, Boy, Girl, Blogpost, Category
 
-class RelationshipTest(unittest.TestCase):    
+
+class RelationshipTest(unittest.TestCase):
     @inlineCallbacks
     def setUp(self):
         yield initDB(self)
@@ -18,17 +18,15 @@ class RelationshipTest(unittest.TestCase):
         self.girl = yield Girl(name="Susan").save()
         self.config = Registry.getConfig()
 
-
     @inlineCallbacks
     def tearDown(self):
-        yield tearDownDB(self)            
-
+        yield tearDownDB(self)
 
     @inlineCallbacks
     def test_polymorphic_get(self):
         bob = yield Nickname(value="Bob", nicknameable_id=self.boy.id, nicknameable_type="Boy").save()
-        sue = yield Nickname(value="Sue", nicknameable_id=self.girl.id, nicknameable_type="Girl").save()        
-        
+        sue = yield Nickname(value="Sue", nicknameable_id=self.girl.id, nicknameable_type="Girl").save()
+
         nicknames = yield self.boy.nicknames.get()
         self.assertEqual(len(nicknames), 1)
         self.assertEqual(nicknames[0], bob)
@@ -45,11 +43,10 @@ class RelationshipTest(unittest.TestCase):
         girl = yield sue.nicknameable.get()
         self.assertEqual(girl, self.girl)
 
-
     @inlineCallbacks
     def test_polymorphic_set(self):
         nicknameone = yield Nickname(value="Bob").save()
-        nicknametwo = yield Nickname(value="Bobby").save()        
+        nicknametwo = yield Nickname(value="Bobby").save()
         yield self.boy.nicknames.set([nicknametwo, nicknameone])
 
         nicknames = yield self.boy.nicknames.get()
@@ -70,13 +67,11 @@ class RelationshipTest(unittest.TestCase):
         self.assertEqual(len(nicknames), 1)
         self.assertEqual(nicknames[0], nickname)
         self.assertEqual(nicknames[0].value, nickname.value)
-        
 
     @inlineCallbacks
     def test_belongs_to(self):
         user = yield self.picture.user.get()
         self.assertEqual(user, self.user)
-
 
     @inlineCallbacks
     def test_set_belongs_to(self):
@@ -84,13 +79,12 @@ class RelationshipTest(unittest.TestCase):
         yield self.picture.user.set(user)
         self.assertEqual(user.id, self.picture.user_id)
 
-
     @inlineCallbacks
     def test_set_on_unsaved(self):
+        # XXX: this test seems to be broken because it's not even using the User it creates
         user = yield User(first_name="new one").save()
         picture = Picture(name="a pic")
         self.assertRaises(ReferenceNotSavedError, getattr, picture, 'user')
-
 
     @inlineCallbacks
     def test_clear_belongs_to(self):
@@ -102,7 +96,6 @@ class RelationshipTest(unittest.TestCase):
         user = yield picture.user.get()
         self.assertEqual(user, None)
 
-
     @inlineCallbacks
     def test_has_many(self):
         # First, make a few pics
@@ -110,11 +103,10 @@ class RelationshipTest(unittest.TestCase):
         for _ in range(3):
             pic = yield Picture(user_id=self.user.id).save()
             ids.append(pic.id)
-            
+
         pics = yield self.user.pictures.get()
         picids = [pic.id for pic in pics]
         self.assertEqual(ids, picids)
-
 
     @inlineCallbacks
     def test_has_many_count(self):
@@ -127,7 +119,6 @@ class RelationshipTest(unittest.TestCase):
         totalnum = yield self.user.pictures.count()
         self.assertEqual(totalnum, 4)
 
-
     @inlineCallbacks
     def test_has_many_get_with_args(self):
         # First, make a few pics
@@ -135,11 +126,10 @@ class RelationshipTest(unittest.TestCase):
         for _ in range(3):
             pic = yield Picture(user_id=self.user.id).save()
             ids.append(pic.id)
-            
-        pics = yield self.user.pictures.get(where=['name = ?','a pic'])
-        self.assertEqual(len(pics),1)
-        self.assertEqual(pics[0].name,'a pic')
 
+        pics = yield self.user.pictures.get(where=['name = ?', 'a pic'])
+        self.assertEqual(len(pics), 1)
+        self.assertEqual(pics[0].name, 'a pic')
 
     @inlineCallbacks
     def test_has_many_count_with_args(self):
@@ -149,9 +139,8 @@ class RelationshipTest(unittest.TestCase):
             pic = yield Picture(user_id=self.user.id).save()
             ids.append(pic.id)
 
-        picsnum = yield self.user.pictures.count(where=['name = ?','a pic'])
-        self.assertEqual(picsnum,1)
-
+        picsnum = yield self.user.pictures.count(where=['name = ?', 'a pic'])
+        self.assertEqual(picsnum, 1)
 
     @inlineCallbacks
     def test_set_has_many(self):
@@ -175,12 +164,11 @@ class RelationshipTest(unittest.TestCase):
             pic = yield Picture(name="a pic").save()
             pics.append(pic)
         picids = [pic.id for pic in pics]
-        
+
         yield self.user.pictures.set(pics)
         results = yield self.user.pictures.get()
         resultids = [pic.id for pic in results]
-        self.assertEqual(picids, resultids)        
-
+        self.assertEqual(picids, resultids)
 
     @inlineCallbacks
     def test_clear_has_many(self):
@@ -191,24 +179,22 @@ class RelationshipTest(unittest.TestCase):
 
         yield self.user.pictures.set(pics)
         yield self.user.pictures.clear()
-        
+
         userpics = yield self.user.pictures.get()
         self.assertEqual(userpics, [])
 
         # even go so far as to refetch user
-        user = yield User.find(self.user.id)
+        yield User.find(self.user.id)
         userpics = yield self.user.pictures.get()
         self.assertEqual(userpics, [])
 
-        allpics = Picture.all()
+        Picture.all()  # XXX: is this for refetch?
         self.assertEqual(userpics, [])
-        
 
     @inlineCallbacks
     def test_has_one(self):
         avatar = yield self.user.avatar.get()
         self.assertEqual(avatar, self.avatar)
-
 
     @inlineCallbacks
     def test_set_has_one(self):
@@ -216,7 +202,6 @@ class RelationshipTest(unittest.TestCase):
         yield self.user.avatar.set(avatar)
         yield avatar.refresh()
         self.assertEqual(avatar.user_id, self.user.id)
-
 
     @inlineCallbacks
     def test_habtm(self):
@@ -229,17 +214,16 @@ class RelationshipTest(unittest.TestCase):
         yield self.config.insert('favorite_colors_users', args)
         args = {'user_id': self.user.id, 'favorite_color_id': colors[1].id}
         yield self.config.insert('favorite_colors_users', args)
-        
-        newcolors = yield self.user.favorite_colors.get()
-        newcolorids = [color.id for color in newcolors]        
-        self.assertEqual(newcolorids, colorids)
 
+        newcolors = yield self.user.favorite_colors.get()
+        newcolorids = [color.id for color in newcolors]
+        self.assertEqual(newcolorids, colorids)
 
     @inlineCallbacks
     def test_habtm_count(self):
         color = yield FavoriteColor(name="red").save()
         colors = [self.favcolor, color]
-        colorids = [color.id for color in colors]
+        [color.id for color in colors]  # XXX: is this for (re)fetch?
         yield FavoriteColor(name="green").save()
 
         args = {'user_id': self.user.id, 'favorite_color_id': colors[0].id}
@@ -250,36 +234,33 @@ class RelationshipTest(unittest.TestCase):
         newcolorsnum = yield self.user.favorite_colors.count()
         self.assertEqual(newcolorsnum, 2)
 
-
     @inlineCallbacks
     def test_habtm_get_with_args(self):
         color = yield FavoriteColor(name="red").save()
         colors = [self.favcolor, color]
-        colorids = [color.id for color in colors]
+        [color.id for color in colors]  # XXX: is this for (re)fetch?
 
         args = {'user_id': self.user.id, 'favorite_color_id': colors[0].id}
         yield self.config.insert('favorite_colors_users', args)
         args = {'user_id': self.user.id, 'favorite_color_id': colors[1].id}
         yield self.config.insert('favorite_colors_users', args)
-        
-        newcolor = yield self.user.favorite_colors.get(where=['name = ?','red'], limit=1)
-        self.assertEqual(newcolor.id, color.id)
 
+        newcolor = yield self.user.favorite_colors.get(where=['name = ?', 'red'], limit=1)
+        self.assertEqual(newcolor.id, color.id)
 
     @inlineCallbacks
     def test_habtm_count_with_args(self):
         color = yield FavoriteColor(name="red").save()
         colors = [self.favcolor, color]
-        colorids = [color.id for color in colors]
+        [color.id for color in colors]
 
         args = {'user_id': self.user.id, 'favorite_color_id': colors[0].id}
         yield self.config.insert('favorite_colors_users', args)
         args = {'user_id': self.user.id, 'favorite_color_id': colors[1].id}
         yield self.config.insert('favorite_colors_users', args)
 
-        newcolorsnum = yield self.user.favorite_colors.count(where=['name = ?','red'])
+        newcolorsnum = yield self.user.favorite_colors.count(where=['name = ?', 'red'])
         self.assertEqual(newcolorsnum, 1)
-
 
     @inlineCallbacks
     def test_set_habtm(self):
@@ -290,9 +271,8 @@ class RelationshipTest(unittest.TestCase):
 
         yield user.favorite_colors.set(colors)
         newcolors = yield user.favorite_colors.get()
-        newcolorids = [color.id for color in newcolors]        
-        self.assertEqual(newcolorids, colorids)        
-
+        newcolorids = [color.id for color in newcolors]
+        self.assertEqual(newcolorids, colorids)
 
     @inlineCallbacks
     def test_clear_habtm(self):
@@ -302,9 +282,8 @@ class RelationshipTest(unittest.TestCase):
 
         yield user.favorite_colors.set(colors)
         yield user.favorite_colors.clear()
-        colors = yield user.favorite_colors.get()        
+        colors = yield user.favorite_colors.get()
         self.assertEqual(colors, [])
-
 
     @inlineCallbacks
     def test_clear_jointable_on_delete_habtm(self):
@@ -318,7 +297,6 @@ class RelationshipTest(unittest.TestCase):
         result = yield self.config.select('favorite_colors_users', where=['favorite_color_id = ?', old_id], limit=1)
         self.assertTrue(result is None)
 
-
     @inlineCallbacks
     def test_clear_jointable_on_delete_habtm_with_custom_args(self):
         join_tablename = 'posts_categories'
@@ -331,13 +309,11 @@ class RelationshipTest(unittest.TestCase):
         res = yield self.config.select(join_tablename, where=['category_id = ?', cat_id], limit=1)
         self.assertIsNone(res)
 
-
     @inlineCallbacks
     def test_set_habtm_blank(self):
         user = yield User().save()
         color = yield FavoriteColor(name="red").save()
         colors = [self.favcolor, color]
-        colorids = [color.id for color in colors]
 
         yield user.favorite_colors.set(colors)
         # now blank out
