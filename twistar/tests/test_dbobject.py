@@ -1,26 +1,25 @@
 from twisted.trial import unittest
-from twisted.enterprise import adbapi
 from twisted.internet.defer import inlineCallbacks, Deferred
 
+from twistar.dbobject import DBObject
 from twistar.exceptions import ImaginaryTableError
 from twistar.registry import Registry
 
-from utils import *
+from .utils import initDB, tearDownDB, User, Avatar, Picture, FakeObject
+
 
 class DBObjectTest(unittest.TestCase):
-    
+
     @inlineCallbacks
     def setUp(self):
         yield initDB(self)
         self.user = yield User(first_name="First", last_name="Last", age=10).save()
         self.avatar = yield Avatar(name="an avatar name", user_id=self.user.id).save()
-        self.picture = yield Picture(name="a pic", size=10, user_id=self.user.id).save()        
-
+        self.picture = yield Picture(name="a pic", size=10, user_id=self.user.id).save()
 
     @inlineCallbacks
     def tearDown(self):
-        yield tearDownDB(self)        
-
+        yield tearDownDB(self)
 
     @inlineCallbacks
     def test_findBy(self):
@@ -36,10 +35,9 @@ class DBObjectTest(unittest.TestCase):
         r = yield User.findBy(first_name="First", last_name="Last")
         self.assertEqual(r[0], self.user)
 
-        u = yield User(first_name="Bob").save()
+        yield User(first_name="Bob").save()
         r = yield User.findBy()
         self.assertEqual(len(r), 2)
-
 
     @inlineCallbacks
     def test_findOrCreate(self):
@@ -51,19 +49,18 @@ class DBObjectTest(unittest.TestCase):
         r = yield User.findOrCreate(first_name="First", last_name="Non")
         self.assertTrue(r.id != self.user.id)
 
-
     @inlineCallbacks
     def test_creation(self):
-        # test creating blank object 
+        # test creating blank object
         u = yield User().save()
         self.assertTrue(type(u.id) == int or type(u.id) == long)
 
         # test creating object with props that don't correspond to columns
         u = yield User(a_fake_column="blech").save()
-        self.assertTrue(type(u.id) == int or type(u.id) == long)        
+        self.assertTrue(type(u.id) == int or type(u.id) == long)
 
         # Test table doesn't exist
-        f = FakeObject(blah = "something")
+        f = FakeObject(blah="something")
         self.failUnlessFailure(f.save(), ImaginaryTableError)
 
         dateklass = Registry.getDBAPIClass("Date")
@@ -71,7 +68,6 @@ class DBObjectTest(unittest.TestCase):
         u = yield User(**args).save()
         for key, value in args.items():
             self.assertEqual(getattr(u, key), value)
-        
 
     @inlineCallbacks
     def test_find(self):
@@ -84,7 +80,6 @@ class DBObjectTest(unittest.TestCase):
         resultids = [result.id for result in results]
         self.assertEqual(ids, resultids)
 
-
     @inlineCallbacks
     def test_count(self):
         ids = []
@@ -94,7 +89,6 @@ class DBObjectTest(unittest.TestCase):
         yield User(first_name="not blah").save()
         results = yield User.count(where=["first_name = ?", "blah"])
         self.assertEqual(3, results)
-
 
     @inlineCallbacks
     def test_all(self):
@@ -106,7 +100,6 @@ class DBObjectTest(unittest.TestCase):
         resultids = [result.id for result in results]
         self.assertEqual(ids, resultids)
 
-
     @inlineCallbacks
     def test_count_all(self):
         ids = [self.user.id]
@@ -116,7 +109,6 @@ class DBObjectTest(unittest.TestCase):
         results = yield User.count()
         self.assertEqual(4, results)
 
-    
     @inlineCallbacks
     def test_delete(self):
         u = yield User().save()
@@ -125,21 +117,19 @@ class DBObjectTest(unittest.TestCase):
         result = yield User.find(oldid)
         self.assertEqual(result, None)
 
-
     def test_delete_all(self):
         users = yield User.all()
         ids = [user.id for user in users]
         for _ in range(3):
             yield User(first_name="blah").save()
         yield User.deleteAll(["first_name = ?", "blah"])
-        users = yield User.all()        
+        users = yield User.all()
         resultids = [user.id for user in users]
         self.assertEqual(resultids, ids)
 
-
     @inlineCallbacks
     def test_update(self):
-        dateklass = Registry.getDBAPIClass("Date")
+        Registry.getDBAPIClass("Date")  # XXX: purpose unclear
         args = {'first_name': "a", "last_name": "b", "age": 10}
         u = yield User(**args).save()
 
@@ -152,10 +142,9 @@ class DBObjectTest(unittest.TestCase):
         for key, value in args.items():
             self.assertEqual(getattr(u, key), value)
 
-
     @inlineCallbacks
     def test_refresh(self):
-        dateklass = Registry.getDBAPIClass("Date")
+        Registry.getDBAPIClass("Date")  # XXX: purpose unclear
         args = {'first_name': "a", "last_name": "b", "age": 10}
         u = yield User(**args).save()
 
@@ -163,15 +152,14 @@ class DBObjectTest(unittest.TestCase):
         u.first_name = "something different"
         u.last_name = "another thing"
         yield u.refresh()
-        
+
         for key, value in args.items():
             self.assertEqual(getattr(u, key), value)
-
 
     @inlineCallbacks
     def test_validation(self):
         User.validatesPresenceOf('first_name', message='cannot be blank, fool.')
-        User.validatesLengthOf('last_name', range=xrange(1,101))
+        User.validatesLengthOf('last_name', range=xrange(1, 101))
         User.validatesUniquenessOf('first_name')
 
         u = User()
@@ -187,7 +175,6 @@ class DBObjectTest(unittest.TestCase):
         yield first.save()
         self.assertEqual(len(first.errors), 0)
         User.clearValidations()
-        
 
     @inlineCallbacks
     def test_validation_function(self):
@@ -208,8 +195,7 @@ class DBObjectTest(unittest.TestCase):
         u = User(age=10)
         valid = yield u.isValid()
         self.assertEqual(valid, True)
-        User.clearValidations()        
-
+        User.clearValidations()
 
     @inlineCallbacks
     def test_afterInit(self):
@@ -222,7 +208,6 @@ class DBObjectTest(unittest.TestCase):
 
         # restore user's afterInit
         User.afterInit = DBObject.afterInit
-
 
     def test_deferred_afterInit(self):
         ctrl_d = Deferred()
@@ -244,7 +229,6 @@ class DBObjectTest(unittest.TestCase):
             self.assertTrue(isinstance(user_d.result, User))
         finally:
             User.afterInit = DBObject.afterInit
-
 
     @inlineCallbacks
     def test_beforeDelete(self):
@@ -275,5 +259,5 @@ class DBObjectTest(unittest.TestCase):
         self.assertEqual(avatar, all['avatar'])
 
         suball = yield user.loadRelations('pictures')
-        self.assertTrue(not suball.has_key('avatar'))
+        self.assertTrue('avatar' not in suball)
         self.assertEqual(pictures, suball['pictures'])
