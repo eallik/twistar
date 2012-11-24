@@ -6,6 +6,7 @@ from twisted.internet import defer
 from BermiInflector.Inflector import Inflector
 from twistar.utils import joinWheres, deferredDict
 
+
 def presenceOf(obj, names, kwargs):
     """
     A validator to test whether or not some named properties are set.
@@ -36,7 +37,7 @@ def lengthOf(obj, names, kwargs):
 
     @param obj: The object whose properties need to be tested.
     @param names: The names of the properties to test.
-    @param kwargs: Keyword arguments.  Right now, all but 
+    @param kwargs: Keyword arguments.  Right now, all but
     C{message}, C{range}, and C{length} values are ignored.
     """
     # create a range object representing acceptable values.  If
@@ -66,20 +67,20 @@ def uniquenessOf(obj, names, kwargs):
     @param kwargs: Keyword arguments.  Right now, all but a
     C{message} value are ignored.
     """
-    message = kwargs.get('message', "is not unique.")    
+    message = kwargs.get('message', "is not unique.")
+
     def handle(results):
         for propname, value in results.items():
             if value is not None:
                 obj.errors.add(propname, message)
     ds = {}
     for name in names:
-        where = ["%s = ?" % name, getattr(obj, name, "")]            
+        where = ["%s = ?" % name, getattr(obj, name, "")]
         if obj.id is not None:
             where = joinWheres(where, ["id != ?", obj.id])
         d = obj.__class__.find(where=where, limit=1)
         ds[name] = d
     return deferredDict(ds).addCallback(handle)
-
 
 
 class Validator(object):
@@ -89,7 +90,7 @@ class Validator(object):
     @cvar VALIDATIONS: A C{list} of functions to call when testing whether or
     not a particular instance is valid.
     """
-    # list of validation methods to call for this class 
+    # list of validation methods to call for this class
     VALIDATIONS = []
 
     @classmethod
@@ -98,7 +99,6 @@ class Validator(object):
         Clear the given class's validations.
         """
         klass.VALIDATIONS = []
-
 
     @classmethod
     def addValidator(klass, func):
@@ -117,22 +117,20 @@ class Validator(object):
         # this validator added).
         klass.VALIDATIONS = klass.VALIDATIONS + [func]
 
-
     @classmethod
     def validatesPresenceOf(klass, *names, **kwargs):
         """
         A validator to test whether or not some named properties are set.
         For those named properties that are not set, an error will
         be recorded in C{obj.errors}.
-        
+
         @param klass: The klass whose properties need to be tested.
         @param names: The names of the properties to test.
         @param kwargs: Keyword arguments.  Right now, all but a
         C{message} value are ignored.
-        """        
+        """
         func = lambda obj: presenceOf(obj, names, kwargs)
         klass.addValidator(func)
-
 
     @classmethod
     def validatesUniquenessOf(klass, *names, **kwargs):
@@ -140,15 +138,14 @@ class Validator(object):
         A validator to test whether or not some named properties are unique.
         For those named properties that are not unique, an error will
         be recorded in C{obj.errors}.
-        
+
         @param klass: The klass whose properties need to be tested.
         @param names: The names of the properties to test.
         @param kwargs: Keyword arguments.  Right now, all but a
         C{message} value are ignored.
-        """            
+        """
         func = lambda obj: uniquenessOf(obj, names, kwargs)
         klass.addValidator(func)
-
 
     @classmethod
     def validatesLengthOf(klass, *names, **kwargs):
@@ -165,12 +162,11 @@ class Validator(object):
 
         @param klass: The klass whose properties need to be tested.
         @param names: The names of the properties to test.
-        @param kwargs: Keyword arguments.  Right now, all but 
+        @param kwargs: Keyword arguments.  Right now, all but
         C{message}, C{range}, and C{length} values are ignored.
-        """        
+        """
         func = lambda obj: lengthOf(obj, names, kwargs)
         klass.addValidator(func)
-
 
     @classmethod
     def _validate(klass, obj):
@@ -187,7 +183,6 @@ class Validator(object):
         return defer.DeferredList(ds).addCallback(lambda results: obj)
 
 
-
 class Errors(dict):
     """
     A class to hold errors found during validation of a L{DBObject}.
@@ -198,8 +193,7 @@ class Errors(dict):
         Constructor.
         """
         self.infl = Inflector()
-        
-    
+
     def add(self, prop, error):
         """
         Add an error to a property.  The error message stored for this property will be formed
@@ -208,13 +202,12 @@ class Errors(dict):
         "First Name cannot be empty" being stored for this property.
 
         @param prop: The name of a property to add an error to.
-        @param error: A string error to associate with the given property.  
+        @param error: A string error to associate with the given property.
         """
         self[prop] = self.get(prop, [])
         msg = "%s %s" % (self.infl.humanize(prop), str(error))
         if not msg in self[prop]:
             self[prop].append(msg)
-
 
     def isEmpty(self):
         """
@@ -226,18 +219,16 @@ class Errors(dict):
                 return False
         return True
 
-
     def errorsFor(self, prop):
         """
         Get the errors for a specific property.
-        
+
         @param prop: The property to fetch errors for.
-        
+
         @return: A C{list} of errors for the given property.  If there are none,
         then the returned C{list} will have a length of 0.
         """
         return self.get(prop, [])
-
 
     def __str__(self):
         """
@@ -250,7 +241,6 @@ class Errors(dict):
         if len(s) == 0:
             return "No errors."
         return "  ".join(s)
-
 
     def __len__(self):
         """
